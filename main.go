@@ -2,10 +2,10 @@ package main
 
 import (
 	"crypto/rand"
+	"fmt"
 	bls "github.com/ethereum/go-ethereum/crypto/bls12381"
 	"log"
 	"math/big"
-	"time"
 )
 
 // constant n which is the length of the vectors in the scheme
@@ -21,7 +21,6 @@ var pp1 [2 * n]*bls.PointG1
 var pp2 [n]*bls.PointG2
 
 /*
-
 	It returns the followings:
 		1. bls.Engine which has the groups and the operations
 		2. {g1 ^ {alpha ^ i}} for 1 <= i <= 2n except for N + 1
@@ -334,57 +333,51 @@ func generateBigIntegerArray(length int, mod *big.Int) []*big.Int {
 }
 
 func main() {
-	// setting the global variables
+	// ******************************************* setup *******************************************
 	eng, arr1, arr2, _ := setup()
 	engine = eng
 	pp1 = arr1
 	pp2 = arr2
-	// First message
+	// *************************************** first message ***************************************
+	// number of entries to be aggregated
+	n1 := 2
 	msg1 := generateBigIntegerArray(n, big.NewInt(1000000000000000))
-	//com := commit(msg1)
-	/*
-		proof10 := generateProofSingle(msg1, 0)
-		proof11 := generateProofSingle(msg1, 1)
-		aggre1 := aggregateProof(proofs1[:], scalar1[:], 2)
-		msg := []*big.Int{msg1[0], msg1[1]}
-		list1 := []int{0, 1}
-			proof11 := generateProofSingle(msg1, 1)
-		proofs1 := []*bls.PointG1{proof10, proof11}
-		aggregateProof(proofs1[:], scalar1[:], 2)
-		scalar1 := []*big.Int{big.NewInt(2), big.NewInt(666)}
-	*/
-	for i := 1; i < 100; i++ {
-		start := time.Now()
-		commit(msg1)
-		//verifySameCommitmentAggregation(com, aggre1, msg, scalar1, list1, 2)
-		elapsed := time.Since(start)
-		log.Printf("%s", elapsed)
-	}
-	//proof10 := generateProofSingle(msg1, 0)
-	//proof11 := generateProofSingle(msg1, 1)
-	/*
-		proofs1 := []*bls.PointG1{proof10, proof11}
-		scalar1 := []*big.Int{big.NewInt(2), big.NewInt(666)}
-		aggre1 := aggregateProof(proofs1[:], scalar1[:], 2)
-		list1 := []int{0, 1}
-		// second message
-		msg2 := [3]*big.Int{big.NewInt(1), big.NewInt(2), big.NewInt(3)}
-		com2 := commit(msg2)
-		proof20 := generateProofSingle(msg2, 0)
-		proof21 := generateProofSingle(msg2, 1)
-		proofs2 := []*bls.PointG1{proof20, proof21}
-		scalar2 := []*big.Int{big.NewInt(2), big.NewInt(666)}
-		aggre2 := aggregateProof(proofs2[:], scalar2[:], 2)
-		list2 := []int{0, 1}
-		// make the joint parameters
-		com_arr := []*bls.PointG1{com1, com2}
-		indices := []*[]int{&(list1), &(list2)}
-		msg_arr := []*[]*big.Int{{big.NewInt(87676), big.NewInt(90)}, {big.NewInt(1), big.NewInt(2)}}
-		number := []int{2, 2}
-		ag_ar := []*bls.PointG1{aggre1, aggre2}
-		scalar_arr := []*[]*big.Int{{big.NewInt(2), big.NewInt(666)}, {big.NewInt(2), big.NewInt(666)}}
-		sc := []*big.Int{big.NewInt(8), big.NewInt(99)}
-		pi := aggregateProof(ag_ar, sc, 2)
-		fmt.Println(verifyCrossCommitmentAggregation(com_arr, pi, msg_arr, scalar_arr, sc, indices, number, 2))
-	*/
+	// generate its commitment
+	com1 := commit(msg1)
+	// generate proofs for indices i1, i2
+	i1 := 10
+	i2 := 100
+	proof10 := generateProofSingle(msg1, i1)
+	proof11 := generateProofSingle(msg1, i2)
+	scalar1 := generateBigIntegerArray(n1, big.NewInt(1000000000000000))
+	// generate the aggregated proof
+	aggregated1 := aggregateProof([]*bls.PointG1{proof10, proof11}[:], scalar1[:], n1)
+	entries1 := []*big.Int{msg1[i1], msg1[i2]}
+	indices1 := []int{i1, i2}
+	// *************************************** second message ***************************************
+	// number of entries to be aggregated
+	n2 := 3
+	// generate the second message
+	msg2 := generateBigIntegerArray(n, big.NewInt(1000000000000000))
+	// generate its commitment
+	com2 := commit(msg2)
+	// generate proofs for indices j1, j2
+	j1 := 10
+	j2 := 100
+	j3 := 90
+	proof20 := generateProofSingle(msg2, j1)
+	proof21 := generateProofSingle(msg2, j2)
+	proof22 := generateProofSingle(msg2, j3)
+	scalar2 := generateBigIntegerArray(n2, big.NewInt(1000000000000000))
+	// generate the aggregated proof
+	aggregated2 := aggregateProof([]*bls.PointG1{proof20, proof21, proof22}[:], scalar2[:], n2)
+	entries2 := []*big.Int{msg2[j1], msg2[j2], msg2[j3]}
+	indices2 := []int{j1, j2, j3}
+	// ******************************* cross commitment aggregation *********************************
+	// The new scalar array
+	sc := generateBigIntegerArray(2, big.NewInt(1000000000000000))
+	// the aggregate proof
+	pi := aggregateProof([]*bls.PointG1{aggregated1, aggregated2}, sc, 2)
+	fmt.Println(verifyCrossCommitmentAggregation([]*bls.PointG1{com1, com2}, pi, []*[]*big.Int{&entries1, &entries2},
+		[]*[]*big.Int{&scalar1, &scalar2}, sc, []*[]int{&indices1, &indices2}, []int{n1, n2}, 2))
 }
